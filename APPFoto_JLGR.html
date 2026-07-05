@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cámara PWA</title>
+    <!-- Vinculación con el archivo de configuración PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2196F3">
+    <style>
+        body { font-family: sans-serif; text-align: center; margin: 20px; background: #f0f0f0; }
+        video, canvas { width: 100%; max-width: 500px; border-radius: 8px; background: #000; }
+        .controls { margin: 15px 0; display: flex; flex-direction: column; gap: 10px; align-items: center; }
+        button { padding: 12px 24px; font-size: 16px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer; width: 80%; max-width: 300px; }
+        .btn-primary { background-color: #4CAF50; color: white; }
+        .btn-secondary { background-color: #2196F3; color: white; }
+        .btn-danger { background-color: #f44336; color: white; }
+        input[type="number"] { padding: 8px; width: 60px; text-align: center; font-size: 16px; }
+        label { font-size: 14px; color: #333; }
+        #status { margin-top: 15px; font-weight: bold; color: #555; }
+    </style>
+</head>
+<body>
+
+    <h1>Cámara PWA</h1>
+    
+    <video id="video" autoplay playsinline></video>
+    <canvas id="canvas" style="display:none;"></canvas>
+
+    <div class="controls">
+        <button class="btn-primary" id="btn-start">1. Activar Cámara</button>
+        
+        <div>
+            <label for="interval">Intervalo (seg):</label>
+            <input type="number" id="interval" value="3" min="1">
+        </div>
+
+        <button class="btn-secondary" id="btn-photo">Tomar Foto Única</button>
+        <button class="btn-secondary" id="btn-burst">Iniciar Ráfaga Continua</button>
+        <button class="btn-danger" id="btn-stop" style="display:none;">Detener Ráfaga</button>
+    </div>
+
+    <div id="status">Listo para iniciar.</div>
+
+    <script>
+        const video = document.getElementById('video');
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        
+        const btnStart = document.getElementById('btn-start');
+        const btnPhoto = document.getElementById('btn-photo');
+        const btnBurst = document.getElementById('btn-burst');
+        const btnStop = document.getElementById('btn-stop');
+        const inputInterval = document.getElementById('interval');
+        const status = document.getElementById('status');
+
+        let stream = null;
+        let burstInterval = null;
+
+        // Registrar el Service Worker para que sea PWA
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(reg => console.log('Service Worker registrado con éxito', reg))
+                    .catch(err => console.error('Error al registrar Service Worker', err));
+            });
+        }
+
+        // 1. Activar la cámara trasera
+        btnStart.addEventListener('click', async () => {
+            try {
+                status.innerText = "Solicitando acceso a la cámara...";
+                stream = await navigator.mediaDevices.getUserMedia({
+                    video: { facingMode: { ideal: "environment" } },
+                    audio: false
+                });
+                video.srcObject = stream;
+                status.innerText = "Cámara activada con éxito.";
+            } catch (err) {
+                console.error(err);
+                status.innerText = "Error: No se pudo acceder a la cámara trasera.";
+            }
+        });
+
+        // Función auxiliar para capturar y descargar automáticamente
+        function capturarYDescargar() {
+            if (!stream) {
+                status.innerText = "Error: Primero debes activar la cámara.";
+                return false;
+            }
+
+            // Ajustar resolución del lienzo al video real
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            // Dibujar el fotograma actual
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+            
+            // Crear el archivo de imagen
+            const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
+            const fileName = `foto_${timestamp}.jpg`;
+            
+            // Convertir a blob y disparar descarga nativa del móvil
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            }, 'image/jpeg', 0.9);
+
+            return true;
+        }
+
+        // Captura única
+        btnPhoto.addEventListener('click', () => {
+            if (capturarYDescargar()) {
+                status.innerText = "Foto guardada en Descargas.";
+            }
+        });
+
+        // Iniciar ráfaga automática
+        btnBurst.addEventListener('click', () => {
+            const ms = parseInt(inputInterval.value) * 1000;
+            if (isNaN(ms) || ms < 1000) {
+                status.innerText = "Por favor introduce un intervalo válido (mínimo 1 segundo).";
+                return;
+            }
+
+            if (!stream) {
+                status.innerText = "Error: Primero activa la cámara.";
+                return;
+            }
+
+            status.innerText = "Ráfaga iniciada...";
+            btnBurst.style.display = 'none';
+            btnStop.style.display = 'block';
+
+            // Ejecuta la primera captura de inmediato
+            capturarYDescargar();
+
+            // Configura el bucle repetitivo
+            burstInterval = setInterval(() => {
+                capturarYDescargar();
+                status.innerText = `Capturando ráfaga... (Última: ${new Date().toLocaleTimeString()})`;
+            }, ms);
+        });
+
+        // Detener ráfaga
+        btnStop.addEventListener('click', () => {
+            clearInterval(burstInterval);
+            btnBurst.style.display = 'block';
+            btnStop.style.display = 'none';
+            status.innerText = "Ráfaga detenida.";
+        });
+    </script>
+</body>
+</html>

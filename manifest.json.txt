@@ -1,0 +1,16 @@
+{
+  "name": "Cámara de Fotos Ráfaga",
+  "short_name": "CamRáfaga",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme-color": "#2196F3",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://flaticon.com",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
