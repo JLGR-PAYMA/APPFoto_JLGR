@@ -1,23 +1,16 @@
-const CACHE_NAME = 'cam-pwa-v1';
-const ASSETS = [
-  'index.html',
-  'manifest.json'
-];
-
-// Instalar y guardar archivos en caché
-self.addEventListener('install', (e) => {
-  e.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS);
-    })
-  );
-});
-
-// Responder desde el caché si no hay internet
-self.addEventListener('fetch', (e) => {
-  e.respondWith(
-    caches.match(e.request).then((response) => {
-      return response || fetch(e.request);
-    })
-  );
-});
+{
+  "name": "Cámara PWA GPS y Voz",
+  "short_name": "CamGPS+Voz",
+  "start_url": "index.html",
+  "display": "standalone",
+  "background_color": "#f0f0f0",
+  "theme_color": "#2196F3",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "https://flaticon.com",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
